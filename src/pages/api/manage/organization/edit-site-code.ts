@@ -13,32 +13,47 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(405).json({ success: false, msg: 'Method not allowed' });
     }
 
-    const { site_code, new_short_code } = req.body;
+    const { id, site_code, new_short_code } = req.body;
 
-    if (!site_code || !new_short_code) {
-        return res.status(400).json({ success: false, msg: 'site_code and new_short_code are required' });
+    if ((!id && !site_code) || !new_short_code) {
+        return res.status(400).json({ success: false, msg: 'Either id or site_code and new_short_code are required' });
     }
 
     try {
-        // Split the site_code into categoryShortCode and organizationShortCode
-        const [categoryShortCode, organizationShortCode] = site_code.split('_');
+        let organization;
 
-        // Find the category by short_code
-        const category = await prisma.category.findFirst({
-            where: { short_code: categoryShortCode },
-        });
+        if (id) {
+            // Find the organization by id
+            organization = await prisma.organization.findFirst({
+                where: { id: parseInt(id) },
+                include: {
+                    category: true, // Ensure the category is included for site_code construction
+                },
+            });
+        } else if (site_code) {
+            // Split the site_code into categoryShortCode and organizationShortCode
+            const [categoryShortCode, organizationShortCode] = site_code.split('_');
 
-        if (!category) {
-            return res.status(404).json({ success: false, msg: 'Category not found' });
+            // Find the category by short_code
+            const category = await prisma.category.findFirst({
+                where: { short_code: categoryShortCode },
+            });
+
+            if (!category) {
+                return res.status(404).json({ success: false, msg: 'Category not found' });
+            }
+
+            // Find the organization by the original site_code
+            organization = await prisma.organization.findFirst({
+                where: {
+                    short_code: organizationShortCode,
+                    category_id: category.id,
+                },
+                include: {
+                    category: true, // Ensure the category is included for site_code construction
+                },
+            });
         }
-
-        // Find the organization by the original site_code
-        const organization = await prisma.organization.findFirst({
-            where: {
-                short_code: organizationShortCode,
-                category_id: category.id,
-            },
-        });
 
         if (!organization) {
             return res.status(404).json({ success: false, msg: 'Organization not found' });
@@ -48,11 +63,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         const existingOrganization = await prisma.organization.findFirst({
             where: {
                 short_code: new_short_code,
-                category_id: category.id,
+                category_id: organization.category_id,
             },
         });
 
         if (existingOrganization) {
+            const categoryShortCode = organization.category?.short_code || '';
             return res.status(400).json({
                 success: false,
                 msg: `The combination of ${categoryShortCode}_${new_short_code} already exists`,

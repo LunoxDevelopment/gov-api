@@ -34,6 +34,7 @@ interface Category {
 interface District {
   id: number;
   name: string;
+  province_id: number;
 }
 
 interface Province {
@@ -65,6 +66,9 @@ const ManageOrganizations: React.FC = () => {
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize] = useState(100);  // Setting the page size to 100
+
+  // Search state
+  const [searchText, setSearchText] = useState('');
 
   useEffect(() => {
     fetchOrganizations();
@@ -121,9 +125,9 @@ const ManageOrganizations: React.FC = () => {
       const selectedCategory = categories.find(category => category.id === value);
       if (selectedCategory) {
         setCategoryPrefix(selectedCategory.short_code);
-        if (editingOrg) {
+        if (!editingOrg) { // Only set short_code prefix when adding a new organization
           form.setFieldsValue({
-            short_code: `${selectedCategory.short_code}_${editingOrg.short_code}`,
+            short_code: `${selectedCategory.short_code}_`,
           });
         }
       }
@@ -133,13 +137,14 @@ const ManageOrganizations: React.FC = () => {
   const handleDistrictChange = (value: number | string) => {
     if (value === 'add_district') {
       openAddDistrictModal();
-    }
-    // Handle district change logic here
-  };
-
-  const handleProvinceChange = (value: number | string) => {
-    if (value === 'add_province') {
-      openAddProvinceModal();
+    } else {
+      const selectedDistrict = districts.find(district => district.id === value);
+      if (selectedDistrict) {
+        const province = provinces.find(province => province.id === selectedDistrict.province_id);
+        if (province) {
+          form.setFieldsValue({ province_id: province.id });
+        }
+      }
     }
   };
 
@@ -171,7 +176,6 @@ const ManageOrganizations: React.FC = () => {
       })),
       onFilter: (value, record) => record.district?.id === value,
     },
-    { title: 'Province', dataIndex: ['province', 'name'], key: 'province' },
     { title: 'Description', dataIndex: 'description', key: 'description' },
     {
       title: 'Action',
@@ -230,7 +234,7 @@ const ManageOrganizations: React.FC = () => {
     form.setFieldsValue({
       category_id: organization.category.id,
       district_id: organization.district?.id,
-      short_code: organization.short_code, // Keep the short code locked
+      province_id: organization.province?.id,
       name_en: organization.name_en,
       name_sin: organization.name_sin,
       name_tm: organization.name_tm,
@@ -278,9 +282,11 @@ const ManageOrganizations: React.FC = () => {
     try {
       const values = await form.validateFields();
       if (editingOrg) {
+        // Don't include the short_code in the payload when editing
+        const { short_code, ...updateValues } = values;
         await axios.put('/api/manage/organization/edit', {
           id: editingOrg.id,
-          ...values,
+          ...updateValues,
           category_id: values.category_id,
           district_id: values.district_id,
           name_en: values.name_en,
@@ -295,7 +301,7 @@ const ManageOrganizations: React.FC = () => {
       } else {
         await axios.post('/api/manage/organization/add', {
           ...values,
-          short_code: values.short_code,
+          short_code: values.short_code.replace(`${categoryPrefix}_`, ''), // Ensure short_code doesn't include the prefix twice
           site_code: `${categoryPrefix}_${values.short_code}`,
         });
         message.success('Organization added successfully');
@@ -316,7 +322,7 @@ const ManageOrganizations: React.FC = () => {
     try {
       const values = await siteCodeForm.validateFields();
       await axios.put('/api/manage/organization/edit-site-code', {
-        site_code: values.site_code,
+        id: editingOrg?.id, // Use id instead of site_code
         new_short_code: values.new_short_code,
       });
       message.success('Site Code updated successfully');
@@ -426,6 +432,11 @@ const ManageOrganizations: React.FC = () => {
     return '';
   };
 
+  // Filter organizations based on search text
+  const filteredOrganizations = organizations.filter(org =>
+    org.name_en.toLowerCase().includes(searchText.toLowerCase())
+  );
+
   return (
     <div style={{ marginTop: '20px', marginLeft: '20px' }}>
       <div style={{ marginBottom: 16 }}>
@@ -435,10 +446,15 @@ const ManageOrganizations: React.FC = () => {
             Columns <DownOutlined />
           </Button>
         </Dropdown>
+        <Input.Search
+          placeholder="Search by Organization Name (EN)"
+          onChange={e => setSearchText(e.target.value)}
+          style={{ width: 300, marginLeft: 16 }}
+        />
       </div>
       <Table
         columns={columns.filter(column => visibleColumns.includes(column.key as string))}
-        dataSource={organizations}
+        dataSource={filteredOrganizations}
         rowKey="id"
         rowClassName={rowClassName}
         pagination={{
@@ -468,29 +484,19 @@ const ManageOrganizations: React.FC = () => {
               </Option>
             </Select>
           </Form.Item>
-          <Form.Item name="short_code" label="Short Code" rules={[{ required: true, message: 'Please input the short code!' }]}>
+          <Form.Item name="short_code" label="Short Code" rules={[{ required: false, message: 'Please input the short code!' }]}>
             <Input addonBefore={`${categoryPrefix}_`} disabled={!!editingOrg} />
           </Form.Item>
           <Form.Item name="name_en" label="Name (EN)" rules={[{ required: true, message: 'Please input the name!' }]}>
             <Input />
           </Form.Item>
-          <Form.Item name="district_id" label="District" rules={[{ required: true, message: 'Please select a district!' }]}>
+          <Form.Item name="district_id" label="District">
             <Select onChange={handleDistrictChange}>
               {districts.map((district) => (
                 <Option key={district.id} value={district.id}>{district.name}</Option>
               ))}
               <Option key="add_district" value="add_district">
                 Add District
-              </Option>
-            </Select>
-          </Form.Item>
-          <Form.Item name="province_id" label="Province" rules={[{ required: true, message: 'Please select a province!' }]}>
-            <Select onChange={handleProvinceChange}>
-              {provinces.map((province) => (
-                <Option key={province.id} value={province.id}>{province.name}</Option>
-              ))}
-              <Option key="add_province" value="add_province">
-                Add Province
               </Option>
             </Select>
           </Form.Item>
@@ -555,15 +561,8 @@ const ManageOrganizations: React.FC = () => {
           <Form.Item name="name" label="District Name" rules={[{ required: true, message: 'Please input the district name!' }]}>
             <Input />
           </Form.Item>
-          <Form.Item name="province_id" label="Province" rules={[{ required: true, message: 'Please select a province!' }]}>
-            <Select onChange={handleProvinceChange}>
-              {provinces.map((province) => (
-                <Option key={province.id} value={province.id}>{province.name}</Option>
-              ))}
-              <Option key="add_province" value="add_province">
-                Add Province
-              </Option>
-            </Select>
+          <Form.Item name="province_id" label="Province">
+            <Input disabled />
           </Form.Item>
         </Form>
       </Modal>
