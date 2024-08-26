@@ -242,9 +242,11 @@ const ManageOrganizations: React.FC = () => {
       email: organization.email,
       contact: organization.contact,
       description: organization.description,
+      short_code: organization.short_code.replace(`${category?.short_code}_`, '') // Set short code without prefix
     });
     setIsModalOpen(true);
   };
+  
 
   const openSetSiteCodeModal = (organization: Organization) => {
     const category = categories.find(cat => cat.id === organization.category.id);
