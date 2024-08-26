@@ -1,0 +1,41 @@
+import { NextApiRequest, NextApiResponse } from 'next';
+import { PrismaClient } from '../../../../../prisma/generated/org-db';
+import cors from '../../../../lib/init-middleware';
+
+const prisma = new PrismaClient();
+
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+    // Apply CORS middleware
+    await cors(req, res);
+
+    // Only allow PUT requests
+    if (req.method !== 'PUT') {
+        return res.status(405).json({ success: false, msg: 'Method not allowed' });
+    }
+
+    const { id, name, province_id } = req.body;
+
+    // Validate required fields
+    if (!id) {
+        return res.status(400).json({ success: false, msg: 'id is required' });
+    }
+
+    try {
+        // Update the district details
+        const updatedDistrict = await prisma.district.update({
+            where: { id },
+            data: {
+                name: name || undefined,
+                province_id: province_id || undefined,
+            },
+        });
+
+        res.status(200).json({
+            success: true,
+            msg: 'District updated successfully',
+            data: updatedDistrict,
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, msg: (error as Error).message, data: null });
+    }
+}

@@ -1,0 +1,71 @@
+// schema.org.prisma
+
+// Datasource for Organization DB
+datasource org_db {
+  provider = "postgresql"
+  url      = env("ORG_DB_URL")
+}
+
+// Generator
+generator client {
+  provider = "prisma-client-js"
+  output   = "./generated/org-db"
+}
+
+// Organization Model
+model organization {
+  id          Int     @id @default(autoincrement())
+  short_code  String? // Nullable
+  name_en     String
+  name_sin    String? // Nullable
+  name_tm     String? // Nullable
+  address     String? // Nullable
+  email       String? // Nullable
+  contact     String? // Nullable
+  category_id Int?
+  district_id Int?
+  description String?
+
+  // Relations
+  category category? @relation(fields: [category_id], references: [id])
+  district district? @relation(fields: [district_id], references: [id]) // New relation
+
+  @@map("organization")
+}
+
+// Category Model
+model category {
+  id          Int     @id @default(autoincrement())
+  name        String
+  description String? // Nullable
+  short_code  String? @unique // Nullable
+
+  // Relations
+  organizations organization[]
+
+  @@map("category")
+}
+
+// District Model
+model district {
+  id          Int     @id @default(autoincrement())
+  name        String
+  province_id Int
+
+  // Relations
+  province     province      @relation(fields: [province_id], references: [id])
+  organizations organization[] // New relation to organization
+
+  @@map("district")
+}
+
+// Province Model
+model province {
+  id   Int     @id @default(autoincrement())
+  name String
+
+  // Relations
+  districts district[]
+
+  @@map("province")
+}
