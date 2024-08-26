@@ -2,28 +2,28 @@ import Image from "next/image";
 
 export default function Home() {
   return (
-    <main className="flex min-h-screen flex-col items-center justify-between p-24">
-      <div className="z-10 w-full max-w-5xl items-center justify-between font-mono text-sm lg:flex">
-        <div className="fixed bottom-0 left-0 flex h-48 w-full items-end justify-center bg-gradient-to-t from-white via-white dark:from-black dark:via-black lg:static lg:size-auto lg:bg-none">
-          <a
-            className="flex place-items-center gap-2 p-8 lg:p-0"
-            href="https://icta.lk/"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Powered by{" "}
-            <Image
-              src="/icta.svg"
-              alt="ICTA Logo"
-              width={120}
-              height={30}
-              priority
-            />
-          </a>
-        </div>
+    <main className="relative flex min-h-screen flex-col items-center justify-center p-24">
+      {/* Top right corner - Powered by ICTA */}
+      <div className="fixed top-0 right-0 m-4">
+        <a
+          className="flex place-items-center gap-2"
+          href="https://icta.lk/"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          Powered by{" "}
+          <Image
+            src="/icta.jpg"
+            alt="ICTA Logo"
+            width={120}
+            height={30}
+            priority
+          />
+        </a>
       </div>
 
-      <div className="relative z-[-1] flex flex-col items-center">
+      {/* Hero section with bottom margin */}
+      <div className="z-10 w-full max-w-5xl flex flex-col items-center text-center mb-16">
         <h1 className="text-5xl font-bold animate-text-gradient">
           Lanka Government API
         </h1>
@@ -35,6 +35,7 @@ export default function Home() {
         </a>
       </div>
 
+      {/* Cards section */}
       <div className="mb-32 grid text-center lg:mb-0 lg:w-full lg:max-w-5xl lg:grid-cols-4 lg:text-left">
         <a
           href="/docs/"
